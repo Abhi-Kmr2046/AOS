@@ -76,8 +76,8 @@ static int32_t insert(PriorityQueue *pq, Elem Key);
 static int32_t remove(PriorityQueue *pq, int32_t lr);
 
 static long dev_ioctl(struct file *, unsigned int, unsigned long);
-// static int dev_open(struct inode *, struct file *);
-// static int dev_release(struct inode *, struct file *);
+static int dev_open(struct inode *, struct file *);
+static int dev_release(struct inode *, struct file *);
 // static ssize_t dev_read(struct file *, char *, size_t, loff_t *);
 // static ssize_t dev_write(struct file *, const char *, size_t, loff_t *);
 
@@ -85,9 +85,7 @@ static int open_processes = 0;
 
 static struct proc_ops file_ops =
 {
-	// .proc_open = dev_open,
-	// .proc_read = dev_read,
-	// .proc_write = dev_write,
-	// .proc_release = dev_release,
+	.proc_open = dev_open,
+	.proc_release = dev_release,
 	.proc_ioctl = dev_ioctl,
 };

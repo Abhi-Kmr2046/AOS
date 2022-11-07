@@ -400,175 +400,66 @@ static long dev_ioctl(struct file *file, unsigned int command, unsigned long arg
 	return 0;
 }
 
-// static ssize_t dev_write(struct file *file, const char* buf, size_t count, loff_t* pos)
-// {
-// 	char arr[4];
-// 	int32_t pq_size;
-// 	int32_t pq_initialized = 0;
-// 	struct hashtable *htable_elem;
-// 	char buffer[256] ={0};
-// 	int32_t buffer_len = 0;
-// 	int32_t num;
-// 	int32_t ret;
 
-// 	if (!buf || !count)
-// 		return -EINVAL;
-// 	if (copy_from_user(buffer, buf, count < 256 ? count : 256))
-// 		return -ENOBUFS;
+static int dev_open(struct inode *inodep, struct file *filep)
+{
+	struct hashtable *htable_elem;
 
-// 	htable_elem = get_htable_elem(current->pid); /* get hashtable entry corresponding to the current process PID */
-// 	if (htable_elem == NULL){
-// 		printk(KERN_ALERT DEVICE ": (dev_write) (PID %d) htable_elem is non-existent", current->pid);
-// 		return -EACCES;
-// 	}
-	
-// 	pq_initialized = (htable_elem->global_pq) ? 1 : 0;
-// 	buffer_len = count < 256 ? count : 256;
+	/* a process cannot open the file more than once */
+	if (get_htable_elem(current->pid) != NULL){
+		/* successful to find the process; process already has opened the file */
+		printk(KERN_ALERT DEVICE ": (dev_open) (PID %d) Process tried to open the file twice\n", current->pid);
+		return -EACCES;
+	}
 
-// 	/* pq is initialized; hence this is a number to enter into pq */
-// 	if (pq_initialized){
-// 		if (count != 4){
-// 			/* input should be of length 4 */
-// 			printk(KERN_ALERT DEVICE ": (dev_write) (PID %d) %d bytes received; should have been 4 bytes (int)", current->pid, buffer_len);
-// 			return -EINVAL;
-// 		}
-		
-// 		memset(arr, 0, 4 * sizeof(char));
-// 		memcpy(arr, buf, count * sizeof(char));
-// 		memcpy(&num, arr, sizeof(num));
-// 		printk(KERN_INFO DEVICE ": (dev_write) (PID %d) Writing %d to pq\n", current->pid, num);
+	/* new process; create a corresponding htable_elem in process_pq_htable */ 
+	htable_elem = kmalloc(sizeof(struct hashtable), GFP_KERNEL);
+	*htable_elem = (struct hashtable){current->pid, NULL, NULL};
 
-// 		if (num % 2 == 0){
-// 			ret = insert(htable_elem->global_pq, num, 1); /* insert into pq from right */
-// 		}
-// 		else{
-// 			ret = insert(htable_elem->global_pq, num, 0); /* insert into pq from left */
-// 		}
-// 		if (ret < 0){ 
-// 			/* pq filled to capacity */ 
-// 			return -EACCES;
-// 		}
-// 		return sizeof(num);
-// 	}
+	/* obtain the lock before adding the current process to process_pq_htable */
+	spin_lock(&pq_spin_lock);
+	printk(DEVICE ": (dev_open) (PID %d) Adding %d to hashtable", current->pid, htable_elem->key);
+	add_to_htable(htable_elem); /* add the process into hashtable */
 
-// 	/* pq is not initialized; only one argument (N) expected from user process */
-// 	if (buffer_len != 1){
-// 		return -EACCES;
-// 	}
+	open_processes++;
+	printk(KERN_INFO DEVICE ": (dev_open) (PID %d) Device has been opened by %d processes", current->pid, open_processes);
+	print_all_processes();
+	spin_unlock(&pq_spin_lock);
+	return 0;
+}
 
-// 	pq_size = buf[0];	
-// 	printk(KERN_INFO DEVICE ": (dev_write) (PID %d) PriorityQueue size received: %d", current->pid, pq_size);
+static int dev_release(struct inode *inodep, struct file *filep)
+{
+	/*
+		obtain the spin_lock 
+		ensure no other process accesses the process linked list when current process is releasing the device
+	*/
+	spin_lock(&pq_spin_lock);
+	remove_process(current->pid);	/* remove the process from linked list */
+	open_processes--;
+	printk(KERN_INFO DEVICE ": (dev_release) (PID %d) Device successfully closed\n", current->pid);
+	print_all_processes();
+	spin_unlock(&pq_spin_lock); /* release the spin_lock */
+	return 0;
+}
 
-// 	/* check pq size */
-// 	if (pq_size <= 0 || pq_size > 100){
-// 		printk(KERN_ALERT DEVICE ": (dev_Write) (PID %d) PriorityQueue size must be an integer in [0,100] \n", current->pid);
-// 		return -EINVAL;
-// 	}
-
-// 	htable_elem->global_pq = destroy_pq(htable_elem->global_pq);	/* reset the pq */
-// 	htable_elem->global_pq = create_pq(pq_size);	/* allocate space for new pq */
-
-// 	return buffer_len;
-// }
-
-// static ssize_t dev_read(struct file *file, char* buf, size_t count, loff_t* pos)
-// {
-// 	int32_t temp_ret = -1;
-// 	int32_t pq_initialized = 0;
-// 	struct hashtable *htable_elem;
-// 	int32_t pq_max;
-
-// 	if (!buf || !count)
-// 		return -EINVAL;
-
-// 	htable_elem = get_htable_elem(current->pid); /* get hashtable entry corresponding to the current process PID */
-// 	if (htable_elem == NULL){
-// 		printk(KERN_ALERT DEVICE ": (dev_read) (PID %d) htable_elem is non-existent", current->pid);
-// 		return -EACCES;
-// 	}
-
-// 	pq_initialized = (htable_elem->global_pq) ? 1 : 0;
-
-// 	 /* cannot read from non-initialized pq */
-// 	if (pq_initialized == 0){
-// 		printk(KERN_ALERT DEVICE ": (dev_read) (PID %d) PriorityQueue not initialized", current->pid);
-// 		return -EACCES;
-// 	}
-
-// 	/* if pq initialized; get the first element from the front of pq */
-// 	pq_max = remove(htable_elem->global_pq, 0);
-// 	printk(KERN_INFO DEVICE ": (dev_read) (PID %d) expecting %ld bytes\n", current->pid, count);
-// 	temp_ret = copy_to_user(buf, (int32_t*)&pq_max, count < sizeof(pq_max) ? count : sizeof(pq_max));
-// 	if (temp_ret == 0 && pq_max != -INF){    
-// 		/* obtained the first elem of pq */
-// 		printk(KERN_INFO DEVICE ": (dev_read) (PID %d) Sending data of %ld bytes with value %d to the user process", current->pid, sizeof(pq_max), pq_max);
-// 		return sizeof(pq_max);
-// 	}
-// 	else{
-// 		printk(KERN_INFO DEVICE ": (dev_read) (PID %d) pq_max is %d; failed to send to user process", current->pid, pq_max);
-// 		return -EACCES;      
-// 	}
-// }
-
-// static int dev_open(struct inode *inodep, struct file *filep)
-// {
-// 	struct hashtable *htable_elem;
-
-// 	/* a process cannot open the file more than once */
-// 	if (get_htable_elem(current->pid) != NULL){
-// 		/* successful to find the process; process already has opened the file */
-// 		printk(KERN_ALERT DEVICE ": (dev_open) (PID %d) Process tried to open the file twice\n", current->pid);
-// 		return -EACCES;
-// 	}
-
-// 	/* new process; create a corresponding htable_elem in process_pq_htable */ 
-// 	htable_elem = kmalloc(sizeof(struct hashtable), GFP_KERNEL);
-// 	*htable_elem = (struct hashtable){current->pid, NULL, NULL};
-
-// 	/* obtain the lock before adding the current process to process_pq_htable */
-// 	spin_lock(&pq_spin_lock);
-// 	printk(DEVICE ": (dev_open) (PID %d) Adding %d to hashtable", current->pid, htable_elem->key);
-// 	add_to_htable(htable_elem); /* add the process into hashtable */
-
-// 	open_processes++;
-// 	printk(KERN_INFO DEVICE ": (dev_open) (PID %d) Device has been opened by %d processes", current->pid, open_processes);
-// 	print_all_processes();
-// 	spin_unlock(&pq_spin_lock);
-// 	return 0;
-// }
-
-// static int dev_release(struct inode *inodep, struct file *filep)
-// {
-// 	/*
-// 		obtain the spin_lock 
-// 		ensure no other process accesses the process linked list when current process is releasing the device
-// 	*/
-// 	spin_lock(&pq_spin_lock);
-// 	remove_process(current->pid);	/* remove the process from linked list */
-// 	open_processes--;
-// 	printk(KERN_INFO DEVICE ": (dev_release) (PID %d) Device successfully closed\n", current->pid);
-// 	print_all_processes();
-// 	spin_unlock(&pq_spin_lock); /* release the spin_lock */
-// 	return 0;
-// }
-
-static int LKM_deque_init(void)
+static int LKM_pq_init(void)
 {
 	struct proc_dir_entry *htable_elem = proc_create(DEVICE, 0, NULL, &file_ops); /* create device (LKM) */
 	if (!htable_elem)
 		return -ENOENT;
 	process_pq_htable = kmalloc(sizeof(struct hashtable), GFP_KERNEL); /* allocate memory to hashtable for process ID (key) -> process pq*/
 	if(process_pq_htable == NULL){
-		printk(KERN_ALERT DEVICE ": (LKM_deque_init) Cannot allocate memory to process -> pq hash table.");
+		printk(KERN_ALERT DEVICE ": (LKM_pq_init) Cannot allocate memory to process -> pq hash table.");
 		return -ENOMEM;
 	}
 	*process_pq_htable = (struct hashtable){ -1, NULL, NULL};
-	printk(KERN_ALERT DEVICE ": (LKM_deque_init) Init PriorityQueue LKM\n");
+	printk(KERN_ALERT DEVICE ": (LKM_pq_init) Init PriorityQueue LKM\n");
 	spin_lock_init(&pq_spin_lock); /* initialize spin_lock */
 	return 0;
 }
 
-static void LKM_deque_exit(void)
+static void LKM_pq_exit(void)
 {
 	free_process_pq_htable(); /* free the hash table memory */
 	remove_proc_entry(DEVICE, NULL); /* remove the device (LKM) */
@@ -576,5 +467,5 @@ static void LKM_deque_exit(void)
 	printk(KERN_ALERT DEVICE ": Exiting PriorityQueue LKM\n");
 }
 
-module_init(LKM_deque_init);
-module_exit(LKM_deque_exit);
+module_init(LKM_pq_init);
+module_exit(LKM_pq_exit);
