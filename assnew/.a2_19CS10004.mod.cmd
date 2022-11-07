@@ -1,0 +1,1 @@
+cmd_/home/Abhishek-Saumyak/Desktop/Ass2/assnew/a2_19CS10004.mod := { echo  /home/Abhishek-Saumyak/Desktop/Ass2/assnew/a2_19CS10004.o; echo; } > /home/Abhishek-Saumyak/Desktop/Ass2/assnew/a2_19CS10004.mod

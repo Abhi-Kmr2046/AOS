@@ -16,7 +16,7 @@ using namespace std;
 
  
 #define int int32_t
-#define PROCNAME "/proc/cs60038_a2_18CS10069"
+#define PROCNAME "/proc/cs60038_a2_19cs10004"
 #define MAX_CAPACITY 100
 #define NUM_OPERATIONS 5
 #define NUM_FORKS 0
@@ -33,6 +33,8 @@ int main(){
  
     vector<int> op({5, 0,1,0,1,0,1, 2,3, 4});
     vector<int> input({100, 1,1,2,2,3,3,0,0, 0});
+    vector<int> exp({0, 0,0,0,0,0,0,3,3, 0});
+
 
 
     
@@ -50,7 +52,7 @@ int main(){
  
     printf("PID %d : PROC FILE successfully opened!\n", curr_pid);
 
-    for(int i=0; i<1; i++) {
+    for(int i=0; i<op.size(); i++) {
         if(op[i]==5) {
             int inval = input[i];
             int ret = ioctl(fd, PB2_SET_CAPACITY, &inval);
@@ -96,6 +98,7 @@ int main(){
                 return 0;
             }
             printf("MIN VALUE %d\n", val);
+
         } else if(op[i]==4){
             struct obj_info curr_info;
             int ret = ioctl(fd, PB2_GET_INFO, &curr_info);

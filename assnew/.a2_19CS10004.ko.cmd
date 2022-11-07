@@ -1,0 +1,1 @@
+cmd_/home/Abhishek-Saumyak/Desktop/Ass2/assnew/a2_19CS10004.ko := ld -r -m elf_x86_64  -z max-page-size=0x200000  --build-id  -T ./scripts/module-common.lds -o /home/Abhishek-Saumyak/Desktop/Ass2/assnew/a2_19CS10004.ko /home/Abhishek-Saumyak/Desktop/Ass2/assnew/a2_19CS10004.o /home/Abhishek-Saumyak/Desktop/Ass2/assnew/a2_19CS10004.mod.o;  true

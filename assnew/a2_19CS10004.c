@@ -1,5 +1,5 @@
 
-#include "a2_18CS10069.h"
+#include "a2_19CS10004.h"
 
 /* Return a process with a specific pic */
 static struct hashtable* get_htable_elem(int key)
@@ -109,7 +109,7 @@ static void heapify_bottom_top(PriorityQueue *h, int32_t index) {
     int32_t parent_node = (index - 1) / 2;
 
     // MIN Heap
-    if (h->arr[parent_node].prio > h->arr[index].prio) {
+    if (h->arr[parent_node].prio < h->arr[index].prio) {
         // swap and recursive call
         temp = h->arr[parent_node];
         h->arr[parent_node] = h->arr[index];
@@ -119,31 +119,6 @@ static void heapify_bottom_top(PriorityQueue *h, int32_t index) {
 }
 
 
-
-// /* Insert a number into pq */
-// static int32_t insert(PriorityQueue *pq, int32_t val, int32_t prio)
-// {
-// 	if (pq->count < pq->capacity){
-// 		/* if number is even; insert at the end */
-// 		if (lr == 1){
-// 			pq->arr[pq->count] = key;
-// 		}
-// 		else{
-// 			/* if number is odd; insert at the front */
-// 			int32_t i;
-// 			for(i = pq->count; i > 0; i--){
-// 				pq->arr[i] = pq->arr[i-1];
-// 			}
-// 			pq->arr[0] = key;
-// 		}
-// 		pq->count++;
-// 	}
-// 	else{
-// 		/* number of elements in pq exceeded its capacity */
-// 		return -EACCES;  
-// 	}
-// 	return 0;
-// }
 /* Insert a number into heap */
 static int32_t insert(PriorityQueue *h, Elem key) {
     if (h->count < h->capacity) {
@@ -157,33 +132,19 @@ static int32_t insert(PriorityQueue *h, Elem key) {
     return 0;
 }
 
-
-
-/* Extract the first element of a pq */
-static int32_t remove(PriorityQueue *pq, int32_t lr)
-{
-	int32_t pop, i;
-	if (pq->count == 0){
-		/* if pq is empty; return -INF */
-		return -INF;
-	}
-	if (lr == 0){
-		/* extract from left end */
-		pop = pq->arr[0].val; /* read from the front */
-		pq->count--; /* reduce the number of elements in pq */
-		
-		/* shift pq by one place to left */
-		for(i = 0; i < pq->count; i++){
-			pq->arr[i] = pq->arr[i+1];
+static int32_t findmin(PriorityQueue *h, int32_t n) {
+	int32_t mnelem = h->arr[n/2].val;
+	int32_t mnprio = h->arr[n/2].prio;
+	int32_t i = 0;
+	for(i=1+n/2; i<n; i++) {
+		if(h->arr[i].prio < mnprio) {
+			mnprio = h->arr[i].prio;
+			mnelem = h->arr[i].val;
 		}
 	}
-	else if(lr == 1){
-		/* extract from right end */
-		pop = pq->arr[pq->count-1].val; /* read from the end */
-		pq->count--; /* reduce the number of elements in pq */
-	}
-	return pop;
+	return mnelem;
 }
+
 
 /* handle ioctl commands for device */
 static long dev_ioctl(struct file *file, unsigned int command, unsigned long arg) 
@@ -245,13 +206,15 @@ static long dev_ioctl(struct file *file, unsigned int command, unsigned long arg
 		if(ret)
 			return -EINVAL;
 
-		printk(KERN_INFO DEVICE ": (dev_ioctl : PB2_INSERT_PRIO) (PID %d) Writing %d to pq\n", current->pid, num);
 
 		/* if pq is initialized and number has been obtained */
 		Elem  new_elem;
-		new_elem.prio = ret;
+		new_elem.prio = num;
 		new_elem.val = nval;
 		ret = insert(htable_elem->global_pq, new_elem); /* insert into pq */
+
+		printk(KERN_INFO DEVICE ": (dev_ioctl : PB2_INSERT_PRIO) (PID %d) Inserting elem: prio %d, val %d\n", current->pid, new_elem.prio, new_elem.val);
+
 		has_nval = 0;
 
 		if (ret < 0){ 
@@ -281,12 +244,12 @@ static long dev_ioctl(struct file *file, unsigned int command, unsigned long arg
 		if(ret)
 			return -EINVAL;
 
-		printk(KERN_INFO DEVICE ": (dev_ioctl : PB2_INSERT_INT) (PID %d) Writing %d to pq\n", current->pid, num);
+		printk(KERN_INFO DEVICE ": (dev_ioctl : PB2_INSERT_INT) (PID %d) Inserting num: %d \n", current->pid, num);
 
 		/* if pq is initialized and number has been obtained */
 		if(has_nval==0) {
 			has_nval = 1;
-			nval = ret;
+			nval = num;
 		}
 		// ret = insert(htable_elem->global_pq, num, 1); /* insert into pq */
 		// if (ret < 0){ 
@@ -342,19 +305,19 @@ static long dev_ioctl(struct file *file, unsigned int command, unsigned long arg
 		}
 
 		/* obtain leftmost element to send to userspace */
-		// pq_max = remove(htable_elem->global_pq, 0);
-		pq_max = htable_elem->global_pq->arr[0].val;
+		// pq_min = remove(htable_elem->global_pq, 0);
+		int32_t pq_min = findmin(htable_elem->global_pq, htable_elem->global_pq->count);
 
-		ret = copy_to_user((int32_t*)arg, (int32_t*)&pq_max, sizeof(int32_t));
+		ret = copy_to_user((int32_t*)arg, (int32_t*)&pq_min, sizeof(int32_t));
 
 		if (ret != 0){   
 			/* unable to send data to user process */ 
-			printk(KERN_ALERT DEVICE ": (dev_ioctl : PB2_GET_MIN) (PID %d) pq_max is %d; failed to send to user process", current->pid, pq_max);
+			printk(KERN_ALERT DEVICE ": (dev_ioctl : PB2_GET_MIN) (PID %d) pq_min is %d; failed to send to user process", current->pid, pq_min);
 			return -EACCES;      
 		}
 		
 		/* obtained the first elem of pq */
-		printk(KERN_INFO DEVICE ": (dev_ioctl : PB2_GET_MIN) (PID %d) Sending data of %ld bytes with value %d to the user process", current->pid, sizeof(pq_max), pq_max);
+		printk(KERN_INFO DEVICE ": (dev_ioctl : PB2_GET_MIN) (PID %d) Sending data of %ld bytes with value %d to the user process", current->pid, sizeof(pq_min), pq_min);
 		break;
 	
 	case PB2_GET_MAX:
@@ -381,6 +344,12 @@ static long dev_ioctl(struct file *file, unsigned int command, unsigned long arg
 		/* obtain max element to send to userspace */
 		// pq_max = remove(htable_elem->global_pq, 1);
 		pq_max = htable_elem->global_pq->arr[0].val;
+
+		int ind = 0;
+		for(ind = 0; ind<htable_elem->global_pq->count; ind++) {
+			printk(KERN_ALERT DEVICE "%d ", htable_elem->global_pq->arr[ind]);
+		}
+
 
 		ret = copy_to_user((int32_t*)arg, (int32_t*)&pq_max, sizeof(int32_t));
 

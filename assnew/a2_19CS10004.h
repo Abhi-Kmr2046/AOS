@@ -1,10 +1,3 @@
-/*
-	Roll No: 18CS10069
-	Name: Siba Smarak Panigrahi
-	CS60038 : Assignment 2 
-	Header LKM For PriorityQueue
-*/
-
 #include <linux/init.h>
 #include <linux/module.h>
 #include <linux/proc_fs.h>
@@ -15,7 +8,7 @@
 #include <linux/kernel.h>
 #include <linux/hashtable.h>
 
-#define DEVICE "cs60038_a2_18CS10069"
+#define DEVICE "cs60038_a2_19cs10004"
 #define INF 100000000 /* 32 bit integers */
 #define current get_current()
 /* ioctl commands */
@@ -27,7 +20,7 @@
 #define PB2_GET_MAX _IOR(0x10, 0x36, int32_t*)
 
 MODULE_LICENSE("GPL");
-MODULE_AUTHOR("Siba Smarak Panigrahi (18CS10069)");
+MODULE_AUTHOR("Abhishek Kumar Sah (19CS10004)");
 
 
 /* define spinlock to be used while updating an entry in hashtable */
@@ -73,13 +66,11 @@ static PriorityQueue* destroy_pq(PriorityQueue* pq);
 // static int32_t insert(PriorityQueue *pq, int32_t val, int32_t prio);
 static int32_t insert(PriorityQueue *pq, Elem Key);
 
-static int32_t remove(PriorityQueue *pq, int32_t lr);
 
 static long dev_ioctl(struct file *, unsigned int, unsigned long);
 static int dev_open(struct inode *, struct file *);
 static int dev_release(struct inode *, struct file *);
-// static ssize_t dev_read(struct file *, char *, size_t, loff_t *);
-// static ssize_t dev_write(struct file *, const char *, size_t, loff_t *);
+
 
 static int open_processes = 0;
 

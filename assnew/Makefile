@@ -1,4 +1,4 @@
-obj-m+=a2_18CS10069.o
+obj-m+=a2_19CS10004.o
 all:
 	make -C /lib/modules/$(shell uname -r)/build/ M=$(PWD) modules 
 
